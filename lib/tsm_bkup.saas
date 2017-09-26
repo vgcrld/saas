@@ -1,0 +1,89 @@
+# ---------------------------------------------------
+# This will backup using multiple dsmc commands (tsm)
+# ---------------------------------------------------
+tsm_bkup () {
+
+	set -o noglob
+	set_parms "-filesys -run -thread_gb opts" "$*"
+
+	#------------------------------------------------
+	# Do we run to run or not (simulate)?
+	#------------------------------------------------
+	if [[ $run = "yes" ]] 
+	then
+		logIt "Parameter --run is Yes.  Backup will be run."
+	elif [[ $run = "no" ]] 
+	then
+		logIt "Parameter --run is No.  Backup will NOT be be run. (preview)"
+	else
+		logIt "Parameter --run must be Yes or No"
+		set_RC 1 stop
+	fi
+
+	#------------------------------------------------
+	# Setup Log
+	#------------------------------------------------
+	LOGPRE=${TMP_PATH}/TSM_BKUP_${$}_${RANDOM}
+	logIt "Log prefix is set to: ${LOGPRE}"
+
+	#------------------------------------------------
+	# Check to be sure the filesys is specified.
+	#------------------------------------------------
+	if [[ -z ${filesys} ]] 
+	then
+		logIt "No filesys has been specified."
+		set_RC 1 stop
+	fi
+
+	
+	#------------------------------------------------
+	# Loop through each file system
+	#------------------------------------------------
+	set $filesys
+
+	typeset -i GB=0
+
+	while [[ $# -ne 0 ]] 
+	do
+	    SEARCH=""
+	    build_search `echo $1 | awk '{ gsub(/\//,"\\\/"); print $0 }'`
+	    shift
+	    while [[ $GB -le $thread_gb ]]
+	    do
+	    	for i in `df -g | awk '$7 ~ /'$SEARCH'/ { print $2-$3,$7}'`
+		do
+			print $i
+		done
+	exit
+	    done
+
+	done
+
+exit 
+
+	#------------------------------------------------
+	# Wait here until all file systems are run.
+	#------------------------------------------------
+	wait
+	
+	#------------------------------------------------
+	# Clean up logs and report on output
+	#------------------------------------------------
+	if [[ $run = "yes" ]] 
+	then
+		set +o noglob
+		# Cleanup and report
+		for i in `ls $LOGPRE*`
+		do
+			cat $i >> $LOG
+			set_RC `cat $i | tail -1`
+			logIt "Deleting log File: $i"
+			rm $i
+		done
+	else
+		logIt "Commands were not run.  --run flag was not set to yes."
+	fi
+
+
+
+}

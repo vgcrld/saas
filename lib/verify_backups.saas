@@ -1,0 +1,28 @@
+verify_backups () {
+
+        set_parms "-backup_hosts" $*
+
+        for i in $backup_hosts
+        do
+                logIt "Scanning for host: $i"
+        done
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+

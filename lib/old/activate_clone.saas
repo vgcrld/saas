@@ -1,0 +1,43 @@
+activate_clone () {
+
+	# ------------------------------------------------------
+	# Set -fileid and -sleep_time for this function
+	# ------------------------------------------------------
+	set_parms "-bcv_sid -version -bcv_a1_dg -bcv_a2_dg" $*
+
+	# ------------------------------------------------------
+	# Select the dg
+	# ------------------------------------------------------
+	if [[ $version = [Aa]1 ]] ; then
+    	    set $bcv_a1_dg
+	elif [[ $version = [Aa]2 ]] ; then 	
+	    set $bcv_a2_dg
+	else 
+	    logIt "The version parameter is require: A1|A2"
+	    set_RC 1 stop
+	fi
+	
+	# ------------------------------------------------------
+	# For each group file - we need to activate
+	# ------------------------------------------------------
+	until [ $# -eq 0 ] 
+	do
+	    # ------------------------------------------------------
+	    # Make sure the shift is correct
+	    # ------------------------------------------------------
+	    if [[ $# -lt 4 ]] ; then
+		logIt "ERROR: There are not enough positional values in the bcv_xx_dg specification."
+		logIt "ERROR: These values where not processed: $*"
+		logIt "ERROR: Check the cfg file and rerun."
+		exit 1
+	    fi
+	    DG=$GROUP_PATH/$1
+	    shift 4
+
+            logIt "Activating clone devices in: $DG"
+            symclone -sid $bcv_sid -f $DG -noprompt activate -consistent >> $LOG 2>&1
+            set_RC $? stop
+    
+	done
+    
+}

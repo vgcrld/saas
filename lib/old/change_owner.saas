@@ -1,0 +1,17 @@
+change_owner () {
+
+	set_parms "-owner -group -filesystem" $*
+
+	build_search `echo $filesystem | awk '{ gsub(/\//,"\\\/"); print $0 }'`
+
+	for FILESYS in `df -g | awk '$7 ~ /^\// { print $7 }'`
+	do
+		if echo $FILESYS | egrep $SEARCH > /dev/null 2>&1 
+		then
+			logIt "Command to issue: chmod -R $owner:$group $FILESYS"
+		fi
+	done
+
+
+
+}
