@@ -1,0 +1,56 @@
+get_vio_data () {
+
+	set_parms "-hmc" $*
+
+	LPARS=$LOG_PATH/${hmc}.LPARS.log
+	rm $LPARS > /dev/null 2>&1
+
+	MAPS=$LOG_PATH/${hmc}.MAPS.log
+	rm $MAPS > /dev/nul 2>&1
+
+	logIt "Capture LPAR information for HMC....: $hmc"
+	logIt "LPAR information file...............: $LPARS"
+	logIt "MAPPING information file............: $MAPS"  
+
+	# Loop all FRAMES in HMC and get LPARS
+	get_lpars $hmc
+	
+	# Connect to each VIO and get mapping info and 
+	VIOS=`awk -F, '$3 ~ /vioserver/ { print $4 }' $LPARS`
+	for VIOSERVER in $VIOS
+	do
+		if ping -c 1 $VIOSERVER > /dev/null 2>&1 
+		then
+			FRAME=`grep $VIOSERVER $LPARS | awk -F, '{print $1}'`
+			get_mapinfo $VIOSERVER $FRAME
+		else
+			logIt "WARNING: Cannot ping vio server $VIOSERVER."
+		fi
+	done
+
+
+}
+
+get_lpars () {
+
+	HMC=$1
+
+        for FRAME in `ssh -oBatchMode=yes -n hscroot@${HMC} lssyscfg -r sys -F name`
+        do
+		logIt "Capture LPAR information for frame $FRAME"
+                /usr/bin/ssh -oBatchMode=yes -n hscroot@${HMC} "lssyscfg -r lpar -m $FRAME -F lpar_id,lpar_env,name" | \
+                        awk -F, -v f=$FRAME '{ printf("%s,0x%08x,%s,%s\n",f,$1,$2,tolower($3)) }' >> $LPARS
+
+        done
+}
+
+get_mapinfo () {
+	
+	VIOSERVER=$1
+	FRAME=$2 
+
+	logIt "Capturing disk mapping for $VIOSERVER on frame $FRAME"
+	/usr/bin/ssh -oBatchMode=yes -n root@${VIOSERVER} /usr/ios/cli/ioscli lsmap -all \
+	| awk -v f=$FRAME '{print f,$0}' >> $MAPS
+
+}

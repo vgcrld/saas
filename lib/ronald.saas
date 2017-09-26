@@ -1,0 +1,15 @@
+ronald () {
+
+        set_parms "-name age" $*
+	
+	logIt "The name is: $name"
+	
+	if [[ -z $age ]] 
+	then
+		logIt "Age is blank."  
+	else
+		logIt "Age is: $age"
+	fi	
+
+
+}

@@ -1,0 +1,44 @@
+05/20/2010 - (bilal) vg_dismount should fuser kill after the wait of 60 seconds before the 2nd umount.
+                (earl) vg_dismount should fuser -kuxc /fs and but only if the fs is mounted.
+                (rich) these are in change 11097
+
+07/2?/2010 - SL EMC Consistent Hot Split
+
+X for some reason when a value is parsed and contains a .* in the front it is always globbed.
+  the problem appears to be in the eval $CMD code in set_parms and in build_symdb ???
+  ** This is fixed by using " " around the parm.  Remember, when a value is passed to a script or function
+     then the shell will glob the value inless it's "" quoted.
+
+X globbing is starting to get on my nerves.  neeed to see if I can set noglob on for entire script
+  and turn off in only the placces needed?
+
+X Fixed a but in fs_bkup.   set_RC was not begin set after dsmc i (code before it was masking the actual rc.
+
+- build_symdb does not work right if a host is removed or changed.  It concats all the ./tmp/<env>.*.symdb
+  files into one and that can cause a problem if a host is added and then removed.
+  ?? This needs a rework.  there needs to be a function that copies out the values of all but the host being worked on
+     then copied back in or something???
+
+- shutdown_env does not really wait for the app* procs to be all stopped unless it times out.  Most of the app
+  stop scripts are not waiting and we should loop for a while and then kill.
+
+- These are the scripts that have changed and must be thoroughly tested.
+
+./lib/build_symdb.saas          fails if regex is too long (fixed) ok now.
+                                changed to egrep.
+                                ?? Really needs to test this
+./lib/vg_dismount.saas        - ok
+
+./lib/change_owner.saas -       not working as designed.  Does not 'wait' for all to finish.
+                                X fixed but will probably always end with RC>0 ???
+                                _ Fix this???  RC>0  This will always fail.
+./lib/shutdown_env.saas         _ needs to wait for the apps for a while   not critical
+./lib/startup_env.saas        - ok
+./lib/usage.saas              - ok
+./lib/activate_clone.saas     - ok
+./lib/recreate_clone.saas     - ok
+./lib/verify_clone.saas       - ok
+
+
+./bin/saas                    - ok
+

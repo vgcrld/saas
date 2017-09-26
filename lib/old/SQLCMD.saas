@@ -1,0 +1,13 @@
+SQLCMD () {
+
+        CMD_TO_RUN="$*"
+
+        sqlplus -s /nolog <<- SQL >> $LOG
+                set pages 200 lines 200
+                conn / as sysdba
+                whenever sqlerror exit -1 rollback;
+                "$CMD_TO_RUN"
+                exit
+        SQL
+
+}

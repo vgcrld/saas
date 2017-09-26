@@ -1,0 +1,114 @@
+vg_dismount () {
+
+	# ------------------------------------------------------------
+	# Allow user to pick which host to dis_mount
+	# ------------------------------------------------------------
+	set_parms "hostname" $*
+
+	# ------------------------------------------------------------
+	# TYPE and VGDATA is returned by get_vgdata
+	# ------------------------------------------------------------
+	TYPE="standard";
+	if [[ -z $hostname ]] ; then
+	    get_vgdata
+	else
+	    get_vgdata $hostname
+	fi
+
+	# ------------------------------------------------------------
+	# Set vgdata as the values to loop through
+	# ------------------------------------------------------------
+        set $VGDATA
+
+	# ------------------------------------------------------------
+	# Loop through the vgdata
+	# ------------------------------------------------------------
+        until [ $# = 0 ]
+        do
+	    # ------------------------------------------------------------
+	    # Get vg name and pvid and shift to next
+	    # ------------------------------------------------------------
+            vg=$1; shift
+            pvid=$1; shift
+
+	    # ------------------------------------------------------------
+            # Check: Is it mounted?
+	    # ------------------------------------------------------------
+            lsvg $vg > /dev/null 2>&1
+            if [[ $? -ne 0 ]] ; then
+                    logIt "Volume Group $vg is not mounted."
+                    set_RC 10
+                    [ $? -ne 0 ] && continue
+            fi
+
+	    # ----------------------------------------------------------------------
+	    # Concat hdisks= with each hdisk in the vg needed for rmdev -dl hdiskx
+	    # ----------------------------------------------------------------------
+            hdisks=`lsvg -p $vg | awk '/^hdisk/ {print $1}'`
+            logIt "Volume Group $vg has the following hdisks:"
+            lspv | grep $vg >> $LOG 2>&1
+
+	    # ----------------------------------------------------------------------
+	    # Force users from file system and umount 
+	    # ----------------------------------------------------------------------
+            for i in `lsvg -l $vg | awk '$7 ~ /^\// { print $7 }'`
+            do
+
+		logIt "Forcing Users and umouting filesystem: $i"
+
+                # -----------------------------------------------
+                # Make sure its mounted before fuser and unmount
+                # -----------------------------------------------
+		if df $i | awk 'BEGIN{rc=1} $7 == "'$i'" { rc=0 } END { exit rc } '
+                then
+                        logIt "Force users of filesystem: $i"
+                        fuser -kuxc $i >> $LOG 2>&1
+                        sleep 5
+                        logIt "Re-issue force users and umount."
+                        fuser -kuxc $i >> $LOG 2>&1
+                        umount $i >> $LOG 2>&1
+
+                	# -----------------------------------------------
+                	# If it didn't unmount, sleep and try again
+                	# -----------------------------------------------
+                        if [ $? -ne 0 ] ; then
+                            logIt "umount of $i has failed.  Sleeping for 60 seconds before retry..."
+                            sleep 60
+                            if df $i | awk 'BEGIN{rc=1} $7 == "'$i'" { rc=0 } END { exit rc } '
+			    then
+				fuser -kuxc $i >> $LOG 2>&1
+			    fi
+                            umount $i
+                            set_RC $?
+                        else
+                            logIt "The umount for $i was successful."
+                        fi
+                else
+                        logIt "The filesystem ( $i ) was not mounted? fuser kill was skipped to protect root (/)."
+                        set_RC 10
+                fi
+
+            done
+
+            logIt "Vary off the volume Group: $vg"
+            varyoffvg $vg >> $LOG 2>&1
+            set_RC $?
+
+            logIt "Export the volume group: $vg"
+            exportvg $vg >> $LOG 2>&1
+            set_RC $?
+
+	    # If these are bcv volumes we must delete the hdisks from the host
+            if [[ $TYPE = "bcv" ]] ; then
+                logIt "BCV dismount.  Removing hdisk."
+                for XX in $hdisks
+                do
+                    logIt "Deleting disk: $XX"
+                    rmdev -dl $XX >> $LOG 2>&1
+                done
+            else
+                    logIt "Run type is standard. hdisks not removed."
+            fi
+
+        done
+}

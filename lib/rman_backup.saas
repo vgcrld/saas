@@ -1,0 +1,55 @@
+rman_backup () {
+
+        #----------------------------------------------------------
+	# Get the parms
+        #----------------------------------------------------------
+	typeset -u SID
+	typeset -i channels
+	set_parms "-sid -orauser -time_stamp -keep_time -log_opts -rman_connect -channels" $*
+
+        #----------------------------------------------------------
+        # Let's switch to the oracle user
+        #----------------------------------------------------------
+        switch_user $orauser
+
+	#if [[ -z $keep_time ]] 
+	#then
+		#keep_time=14
+		#logIt "INFO: keep_time defaulted to ${keep_time} day(s)";
+	#fi
+
+	logIt "Orace SID...................:" $ORACLE_SID
+	logIt "Oracle Home.................:" $ORACLE_HOME
+	logIt "Oracle User.................:" $orauser
+	logIt "Oracle RMAN Channels........:" $channels
+	logIt "Backup Keep Time............:" $keep_time
+	logIt "RMAN Connect String.........:" $rman_connect
+	logIt "RMAN TAG timestamp..........:" $time_stamp
+
+        #----------------------------------------------------------
+        # Create command and start backup
+        #----------------------------------------------------------
+	logIt "Starting DB backup for $ENVIRONMENT, DB: $ORACLE_SID"
+	
+	typeset -i COUNT=1
+
+	while [[ $COUNT -le $channels ]]
+	do
+		CHANNELS=$CHANNELS"allocate channel t${COUNT} TYPE 'SBT_TAPE' PARMS 'ENV=(TDPO_OPTFILE=/usr/tivoli/tsm/client/oracle/bin64/tdpo_${ORACLE_SID}.opt)'; "
+		COUNT=$(( COUNT + 1 ))
+	done
+
+        COMMAND="run {
+                $CHANNELS
+                backup incremental level 0 database
+                    tag='${ORACLE_SID}_LEVEL0_${time_stamp}'
+                    keep until time 'sysdate +${keep_time}' ${log_opts};
+                backup archivelog all delete input tag='${ORACLE_SID}_ARCH_${time_stamp}';
+                backup current controlfile
+                    tag='${ORACLE_SID}_CTL_${time_stamp}'
+                    format='${ORACLE_SID}_CTL_${time_stamp}' ;
+                }"
+
+	RMANCMD "$COMMAND"
+	set_RC $? stop
+}

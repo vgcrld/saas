@@ -1,0 +1,37 @@
+cutfiles () {
+	
+	typeset -u type=""
+
+	set_parms "-infile -type" $*
+
+	# DGFILE is a temp copy of the whole sym DG file normalized 
+	DGFILE=/tmp/DGFILE_$JOB
+	logIt "The device file $infile is written to temp file: $DGFILE"
+       	cat $infile | while read LINE
+        do
+                set $LINE
+                typeset -u STD=$1
+                typeset -u BCV=$2
+                printf "%04s %04s \n" $STD $BCV >> $DGFILE
+        done
+
+	if [[ $type == "LOG" ]] 
+	then
+		GREPPARM=""
+	elif [[ $type == "DATA" ]] 
+	then
+		GREPPARM="-v"
+	else
+		logIt "ERROR: Type was not LOG or DATA.  Please respecify."
+		set_RC 1 stop
+	fi
+	
+	LOGDEVS=`awk '$12 == "LOG" { print $4 }' $MASTER`
+	build_search $LOGDEVS
+	logIt "Search built: '$SEARCH', GREPPARM is: $GREPPARM"
+	egrep $GREPPARM "$SEARCH" $DGFILE
+
+	#rm $TYPEONLYFILE > /dev/null 2>&1
+	#rm $DGFILE > /dev/null 2>&1
+
+}

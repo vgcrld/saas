@@ -1,0 +1,33 @@
+hb_begin () {
+
+	set_parms "-orauser" $*
+
+	# Let's switch to the oracle user
+	switch_user $orauser
+
+	logIt "Set profile ${HOME}/.profile"
+	. ${HOME}/.profile > /dev/null 2>&1
+	set_RC $? stop
+	
+	#-------------------------------------------------------------
+	# Switch the log -  Use '' around SQLCMD and ; end of sql cmd
+	#-------------------------------------------------------------
+	logIt "Switching Logfile for DB SID: ${ORACLE_SID}" 
+	SQLCMD 'alter system archive log current;'
+	set_RC $? stop
+
+	logIt "Query the archive logs sequence and thread numbers."
+	SQLCMD 'select THREAD#, SEQUENCE# from v$archived_log;' 
+
+	logIt "Query the status of the data files."
+	SQLCMD 'select * from v$backup;'
+
+	logIt "Placing the database into backup mode: ${ORACLE_SID}"
+	SQLCMD 'alter database begin backup;'
+	set_RC $? 
+
+	logIt "Query the status of the data files."
+	SQLCMD 'select * from v$backup;'
+	set_RC $? 
+
+}

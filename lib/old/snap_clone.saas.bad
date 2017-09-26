@@ -1,0 +1,76 @@
+snap_clone () {
+	
+	# Get the parms
+	set_parms "-snap_sid -snap_dg -snap_pool rerun" $*
+
+	logIt "Disk Group file.......: $snap_dg"
+	logIt "Snap pool selected....: $snap_pool"
+	logIt "Snap SID..............: $snap_sid" 
+	logIt "Rerun from step.......: $rerun"    
+
+	if [[ -z $rerun ]]
+	then
+		logIt "Running from the top, rerun is blank."
+		rerun="1 2 3 4 5"
+	fi
+	
+	for snap_dg in $snap_dg
+	do
+
+		if [[ -f $snap_dg ]] 
+		then
+			logIt "Found device file $snap_dg"
+			USE_DG=$snap_dg
+		else
+			logIt "ERROR: Device file $snap_dg is not found.  Please respecify!"
+			set_RC 1 stop
+		fi
+		
+		# Issue the snap sequence one at a time
+	
+		for STEP in $rerun
+		do
+
+		    case $STEP in
+	
+		      1) CMD="symsnap -sid $snap_sid -noprompt -f $USE_DG terminate"
+		        logIt "Snap, step $STEP: TERMINATE: $CMD"
+		        echo $CMD | tee -a $LOG 2>&1
+		        set_RC $? stop
+		        ;;
+    
+		      2) CMD="symsnap -noprompt -svp $snap_pool -sid $snap_sid -f $USE_DG create"
+		        logIt "Snap, step $STEP: CREATE: $CMD"
+		        echo $CMD | tee -a $LOG 2>&1
+		        set_RC $? stop
+		        ;;
+        
+		      3) CMD="symsnap -sid $snap_sid -f $USE_DG verify -created"
+		        logIt "Snap, step $STEP: VERIFY: $CMD"
+		        echo $CMD | tee -a $LOG 2>&1
+		        set_RC $? stop
+		        ;;
+        
+		      4) CMD="symsnap -noprompt -sid $snap_sid -f $USE_DG activate -concurrent"
+		        logIt "Snap, step $STEP: ACTIVATE: $CMD"
+		        echo $CMD | tee -a $LOG 2>&1
+		        set_RC $? stop
+		        ;;
+        
+		      5) CMD="symsnap -sid $snap_sid -f $USE_DG verify -copyonwrite"
+		        logIt "Snap, step $STEP: VERIFY: $CMD"
+		        echo $CMD | tee -a $LOG 2>&1
+		        set_RC $? stop
+		        ;;
+    
+		      *) logIt "ERROR: Rerun step is invalid.  Range is 1-5!"
+		        set_RC 1 stop
+		        ;;
+    
+ 		    esac 
+
+		done
+	
+	done
+    
+}
